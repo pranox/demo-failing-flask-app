@@ -8,45 +8,39 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # -------------------------------
-      # STEP 1: Run command & capture logs
-      # -------------------------------
-      - name: Run failing step and capture logs
+      # 1️⃣ Run failing step & capture logs
+      - name: Run failing step (capture logs)
         id: run_app
         shell: powershell
         continue-on-error: true
         run: |
-          Write-Host "Running failing command..."
-          python -c "import app" 2>&1 | Tee-Object -FilePath error.log
-          Write-Host "Exit code: $LASTEXITCODE"
+          python -c "import app" 2>&1 | Tee-Object error.log
           exit $LASTEXITCODE
 
-      # -------------------------------
-      # STEP 2: Send REAL logs to webhook
-      # -------------------------------
-      - name: Send CI logs to AI Log Analyzer
+      # 2️⃣ Encode logs safely
+      - name: Encode logs
         shell: powershell
         run: |
           if (Test-Path error.log) {
-            $log = Get-Content error.log -Raw
-
-            Write-Host "Sending logs to analyzer..."
-            curl.exe -X POST http://localhost:8000/webhook/ci `
-              -H "Content-Type: application/json" `
-              -d "{""incident_id"":""${{ github.run_id }}"",""log_text"":""$log""}"
-          } else {
-            Write-Host "No error.log found, nothing to send"
+            $bytes = [System.IO.File]::ReadAllBytes("error.log")
+            $encoded = [Convert]::ToBase64String($bytes)
+            echo "LOG_B64=$encoded" >> $env:GITHUB_ENV
           }
 
-      # -------------------------------
-      # STEP 3: Fail the job if needed
-      # -------------------------------
+      # 3️⃣ Send logs to analyzer
+      - name: Send logs to AI Log Analyzer
+        shell: powershell
+        run: |
+          curl.exe -X POST http://localhost:8000/webhook/ci `
+            -H "Content-Type: application/json" `
+            -d "{""incident_id"":""${{ github.run_id }}"",""log_b64"":""$env:LOG_B64""}"
+
+      # 4️⃣ Fail job properly
       - name: Mark job as failed
         shell: powershell
         run: |
-          if (${{ steps.run_app.outcome }} -eq 'failure') {
+          if ("${{ steps.run_app.outcome }}" -eq "failure") {
             exit 1
           }
