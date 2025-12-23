@@ -11,9 +11,16 @@ jobs:
 
       - name: Run failing step
         id: run_app
+        shell: pwsh
         continue-on-error: true
         run: |
-          python -c "import app"
+          try {
+            python -c "import app"
+            Write-Host "App import succeeded"
+          } catch {
+            Write-Host "App import failed"
+            exit 1
+          }
 
       - name: Send logs to AI Log Analyzer
         if: steps.run_app.outcome == 'failure'
@@ -27,5 +34,4 @@ jobs:
       - name: Mark job as failed
         if: steps.run_app.outcome == 'failure'
         run: |
-          Write-Host ">>> Marking job as failed <<<"
           exit 1
