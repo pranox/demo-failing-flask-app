@@ -11,7 +11,7 @@ jobs:
 
       - name: Run failing step
         id: run_app
-        shell: pwsh
+        shell: powershell
         continue-on-error: true
         run: |
           try {
@@ -23,15 +23,16 @@ jobs:
           }
 
       - name: Send logs to AI Log Analyzer
-        if: steps.run_app.outcome == 'failure'
-        shell: pwsh
+        if: steps.run_app.outcome -eq 'failure'
+        shell: powershell
         run: |
           Write-Host ">>> Sending logs to AI Log Analyzer <<<"
-          curl.exe --% -X POST http://localhost:8000/webhook/ci `
+          curl.exe -X POST http://localhost:8000/webhook/ci `
             -H "Content-Type: application/json" `
             -d "{\"incident_id\":\"${{ github.run_id }}\",\"log_text\":\"CI failed: ModuleNotFoundError\"}"
 
       - name: Mark job as failed
-        if: steps.run_app.outcome == 'failure'
+        if: steps.run_app.outcome -eq 'failure'
+        shell: powershell
         run: |
           exit 1
