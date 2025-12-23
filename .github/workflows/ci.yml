@@ -15,7 +15,9 @@ jobs:
 
       - name: Send logs to AI Log Analyzer
         if: failure()
+        shell: pwsh
         run: |
-          curl -X POST http://localhost:8000/webhook/ci ^
-            -H "Content-Type: application/json" ^
+          Write-Host ">>> Sending logs to AI Log Analyzer <<<"
+          curl.exe --% -X POST http://localhost:8000/webhook/ci `
+            -H "Content-Type: application/json" `
             -d "{\"incident_id\":\"${{ github.run_id }}\",\"log_text\":\"CI failed: ModuleNotFoundError\"}"
