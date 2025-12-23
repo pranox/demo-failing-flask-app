@@ -1,38 +1,52 @@
 name: Demo CI
 
-on: [push]
+on:
+  push:
 
 jobs:
   test:
     runs-on: self-hosted
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Run failing step
+      # -------------------------------
+      # STEP 1: Run command & capture logs
+      # -------------------------------
+      - name: Run failing step and capture logs
         id: run_app
         shell: powershell
         continue-on-error: true
         run: |
-          try {
-            python -c "import app"
-            Write-Host "App import succeeded"
-          } catch {
-            Write-Host "App import failed"
-            exit 1
+          Write-Host "Running failing command..."
+          python -c "import app" 2>&1 | Tee-Object -FilePath error.log
+          Write-Host "Exit code: $LASTEXITCODE"
+          exit $LASTEXITCODE
+
+      # -------------------------------
+      # STEP 2: Send REAL logs to webhook
+      # -------------------------------
+      - name: Send CI logs to AI Log Analyzer
+        shell: powershell
+        run: |
+          if (Test-Path error.log) {
+            $log = Get-Content error.log -Raw
+
+            Write-Host "Sending logs to analyzer..."
+            curl.exe -X POST http://localhost:8000/webhook/ci `
+              -H "Content-Type: application/json" `
+              -d "{""incident_id"":""${{ github.run_id }}"",""log_text"":""$log""}"
+          } else {
+            Write-Host "No error.log found, nothing to send"
           }
 
-      - name: Send logs to AI Log Analyzer
-        if: steps.run_app.outcome == 'failure'
-        shell: powershell
-        run: |
-          $log = Get-Content error.log -Raw
-          curl.exe -X POST http://localhost:8000/webhook/ci `
-            -H "Content-Type: application/json" `
-            -d "{\"incident_id\":\"${{ github.run_id }}\",\"log_text\":\"$log\"}"
-
+      # -------------------------------
+      # STEP 3: Fail the job if needed
+      # -------------------------------
       - name: Mark job as failed
-        if: steps.run_app.outcome == 'failure'
         shell: powershell
         run: |
-          exit 1
+          if (${{ steps.run_app.outcome }} -eq 'failure') {
+            exit 1
+          }
