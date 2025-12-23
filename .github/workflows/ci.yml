@@ -10,12 +10,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run failing step
+        id: run_app
         continue-on-error: true
         run: |
           python -c "import app"
 
       - name: Send logs to AI Log Analyzer
-        if: failure()
+        if: steps.run_app.outcome == 'failure'
         shell: pwsh
         run: |
           Write-Host ">>> Sending logs to AI Log Analyzer <<<"
@@ -24,7 +25,7 @@ jobs:
             -d "{\"incident_id\":\"${{ github.run_id }}\",\"log_text\":\"CI failed: ModuleNotFoundError\"}"
 
       - name: Mark job as failed
-        if: failure()
+        if: steps.run_app.outcome == 'failure'
         run: |
           Write-Host ">>> Marking job as failed <<<"
           exit 1
