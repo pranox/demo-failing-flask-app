@@ -9,27 +9,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run failing step
+      - name: Run failing step (capture logs)
         id: run_app
         shell: powershell
         continue-on-error: true
         run: |
-          try {
-            python -c "import app"
-            Write-Host "App import succeeded"
-          } catch {
-            Write-Host "App import failed"
-            exit 1
-          }
+          python -c "import app" 2>&1 | Tee-Object error.log
+          exit $LASTEXITCODE
 
-      - name: Send logs to AI Log Analyzer
+      - name: Send real CI logs to AI Log Analyzer
         if: steps.run_app.outcome == 'failure'
         shell: powershell
         run: |
-          Write-Host ">>> Sending logs to AI Log Analyzer <<<"
+          $log = Get-Content error.log -Raw
           curl.exe -X POST http://localhost:8000/webhook/ci `
             -H "Content-Type: application/json" `
-            -d "{\"incident_id\":\"${{ github.run_id }}\",\"log_text\":\"CI failed: ModuleNotFoundError\"}"
+            -d "{\"incident_id\":\"${{ github.run_id }}\",\"log_text\":\"$log\"}"
 
       - name: Mark job as failed
         if: steps.run_app.outcome == 'failure'
