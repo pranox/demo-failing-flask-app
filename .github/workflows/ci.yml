@@ -23,7 +23,7 @@ jobs:
           }
 
       - name: Send logs to AI Log Analyzer
-        if: steps.run_app.outcome -eq 'failure'
+        if: steps.run_app.outcome == 'failure'
         shell: powershell
         run: |
           Write-Host ">>> Sending logs to AI Log Analyzer <<<"
@@ -32,7 +32,7 @@ jobs:
             -d "{\"incident_id\":\"${{ github.run_id }}\",\"log_text\":\"CI failed: ModuleNotFoundError\"}"
 
       - name: Mark job as failed
-        if: steps.run_app.outcome -eq 'failure'
+        if: steps.run_app.outcome == 'failure'
         shell: powershell
         run: |
           exit 1
