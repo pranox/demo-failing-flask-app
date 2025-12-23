@@ -9,15 +9,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run failing step (capture logs)
+      - name: Run failing step
         id: run_app
         shell: powershell
         continue-on-error: true
         run: |
-          python -c "import app" 2>&1 | Tee-Object error.log
-          exit $LASTEXITCODE
+          try {
+            python -c "import app"
+            Write-Host "App import succeeded"
+          } catch {
+            Write-Host "App import failed"
+            exit 1
+          }
 
-      - name: Send real CI logs to AI Log Analyzer
+      - name: Send logs to AI Log Analyzer
         if: steps.run_app.outcome == 'failure'
         shell: powershell
         run: |
