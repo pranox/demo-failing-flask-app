@@ -10,37 +10,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1️⃣ Run failing step & capture logs
-      - name: Run failing step (capture logs)
-        id: run_app
+      # 1. Run failing step & capture logs
+      - name: Run failing step
         shell: powershell
         continue-on-error: true
         run: |
           python -c "import app" 2>&1 | Tee-Object error.log
           exit $LASTEXITCODE
 
-      # 2️⃣ Encode logs safely
-      - name: Encode logs
+      # 2. Encode + send logs in SAME STEP
+      - name: Send logs to AI Log Analyzer
         shell: powershell
         run: |
           if (Test-Path error.log) {
             $bytes = [System.IO.File]::ReadAllBytes("error.log")
-            $encoded = [Convert]::ToBase64String($bytes)
-            echo "LOG_B64=$encoded" >> $env:GITHUB_ENV
+            $b64 = [Convert]::ToBase64String($bytes)
+
+            curl.exe -X POST http://localhost:8000/webhook/ci `
+              -H "Content-Type: application/json" `
+              -d "{""incident_id"":""${{ github.run_id }}"",""log_b64"":""$b64""}"
+          } else {
+            Write-Host "No logs to send"
           }
 
-      # 3️⃣ Send logs to analyzer
-      - name: Send logs to AI Log Analyzer
-        shell: powershell
-        run: |
-          curl.exe -X POST http://localhost:8000/webhook/ci `
-            -H "Content-Type: application/json" `
-            -d "{""incident_id"":""${{ github.run_id }}"",""log_b64"":""$env:LOG_B64""}"
-
-      # 4️⃣ Fail job properly
+      # 3. Fail job
       - name: Mark job as failed
         shell: powershell
         run: |
-          if ("${{ steps.run_app.outcome }}" -eq "failure") {
-            exit 1
-          }
+          exit 1
