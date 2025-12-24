@@ -10,31 +10,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Run failing step & capture logs
+      # 1️⃣ Run command and capture ONLY stderr summary
       - name: Run failing step
         shell: powershell
         continue-on-error: true
         run: |
-          python -c "import app" 2>&1 | Tee-Object error.log
+          python -c "import app" 2> error.txt
           exit $LASTEXITCODE
 
-      # 2. Encode + send logs in SAME STEP
-      - name: Send logs to AI Log Analyzer
+      # 2️⃣ Send error summary (NOT full logs)
+      - name: Send error summary to analyzer
         shell: powershell
         run: |
-          if (Test-Path error.log) {
-            $bytes = [System.IO.File]::ReadAllBytes("error.log")
-            $b64 = [Convert]::ToBase64String($bytes)
+          if (Test-Path error.txt) {
+            $error = Get-Content error.txt -Raw
 
             curl.exe -X POST http://localhost:8000/webhook/ci `
               -H "Content-Type: application/json" `
-              -d "{""incident_id"":""${{ github.run_id }}"",""log_b64"":""$b64""}"
-          } else {
-            Write-Host "No logs to send"
+              -d "{""incident_id"":""${{ github.run_id }}"",""log_text"":""$error""}"
           }
 
-      # 3. Fail job
-      - name: Mark job as failed
+      # 3️⃣ Fail job
+      - name: Mark job failed
         shell: powershell
-        run: |
-          exit 1
+        run: exit 1
