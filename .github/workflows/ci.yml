@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1️⃣ Run command and capture ONLY stderr summary
+      # 1️⃣ Run failing step and capture stderr
       - name: Run failing step
         shell: powershell
         continue-on-error: true
@@ -18,19 +18,32 @@ jobs:
           python -c "import app" 2> error.txt
           exit $LASTEXITCODE
 
-      # 2️⃣ Send error summary (NOT full logs)
-      - name: Send error summary to analyzer
+      # 2️⃣ Create JSON payload file (NO inline JSON)
+      - name: Create webhook payload
         shell: powershell
         run: |
           if (Test-Path error.txt) {
-            $error = Get-Content error.txt -Raw
-
-            curl.exe -X POST http://localhost:8000/webhook/ci `
-              -H "Content-Type: application/json" `
-              -d "{""incident_id"":""${{ github.run_id }}"",""log_text"":""$error""}"
+            $log = Get-Content error.txt -Raw
+          } else {
+            $log = "Unknown CI failure"
           }
 
-      # 3️⃣ Fail job
+          $json = @{
+            incident_id = "${{ github.run_id }}"
+            log_text    = $log
+          } | ConvertTo-Json -Compress
+
+          $json | Out-File payload.json -Encoding utf8
+
+      # 3️⃣ Send payload EXACTLY like manual curl
+      - name: Send logs to AI Log Analyzer
+        shell: powershell
+        run: |
+          curl.exe --% -X POST http://localhost:8000/webhook/ci `
+            -H "Content-Type: application/json" `
+            --data-binary @payload.json
+
+      # 4️⃣ Fail job
       - name: Mark job failed
         shell: powershell
         run: exit 1
