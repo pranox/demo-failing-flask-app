@@ -18,10 +18,10 @@ jobs:
       - name: Send failure to analyzer
         shell: powershell
         run: |
-                $json = '{"incident_id":"test","log_text":"CI failure occurred"}'
-                $json | curl.exe -X POST http://localhost:8000/webhook/ci `
-                  -H "Content-Type: application/json" `
-                  --data-binary @-
+          curl.exe --% -X POST http://localhost:8000/webhook/ci `
+            -H "Content-Type: application/json" `
+            -d "{\"incident_id\":\"${{ github.run_id }}\",\"log_text\":\"CI failure from demo app\"}"
+
       - name: Mark job failed
         shell: powershell
         run: exit 1
