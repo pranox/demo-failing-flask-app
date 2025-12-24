@@ -1,7 +1,6 @@
 name: Demo CI
 
-on:
-  push:
+on: [push]
 
 jobs:
   test:
@@ -10,40 +9,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1️⃣ Run failing step and capture stderr
       - name: Run failing step
-        shell: powershell
         continue-on-error: true
-        run: |
-          python -c "import app" 2> error.txt
-          exit $LASTEXITCODE
-
-      # 2️⃣ Create JSON payload file (NO inline JSON)
-      - name: Create webhook payload
         shell: powershell
         run: |
-          if (Test-Path error.txt) {
-            $log = Get-Content error.txt -Raw
-          } else {
-            $log = "Unknown CI failure"
-          }
+          python -c "import app"
 
-          $json = @{
-            incident_id = "${{ github.run_id }}"
-            log_text    = $log
-          } | ConvertTo-Json -Compress
-
-          $json | Out-File payload.json -Encoding utf8
-
-      # 3️⃣ Send payload EXACTLY like manual curl
-      - name: Send logs to AI Log Analyzer
+      - name: Send failure to analyzer
         shell: powershell
         run: |
           curl.exe --% -X POST http://localhost:8000/webhook/ci `
             -H "Content-Type: application/json" `
-            --data-binary @payload.json
+            -d "{\"incident_id\":\"${{ github.run_id }}\",\"log_text\":\"CI failure from demo app\"}"
 
-      # 4️⃣ Fail job
       - name: Mark job failed
         shell: powershell
         run: exit 1
