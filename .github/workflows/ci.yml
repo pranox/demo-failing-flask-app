@@ -18,11 +18,10 @@ jobs:
       - name: Send failure to analyzer
         shell: powershell
         run: |
-          $json = '{"incident_id":"test","log_text":"CI failure occurred"}'
-          $json | curl.exe -X POST http://localhost:8000/webhook/ci `
-            -H "Content-Type: application/json" `
-            --data-binary @-
-
+                $json = '{"incident_id":"test","log_text":"CI failure occurred"}'
+                $json | curl.exe -X POST http://localhost:8000/webhook/ci `
+                  -H "Content-Type: application/json" `
+                  --data-binary @-
       - name: Mark job failed
         shell: powershell
         run: exit 1
