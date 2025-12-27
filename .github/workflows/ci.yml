@@ -9,27 +9,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run failing step
-        continue-on-error: true
+      - name: Run failing step and capture error
         shell: powershell
+        continue-on-error: true
         run: |
-          python -c "import app"
+          $err = ""
+
+          try {
+            python -c "import app"
+          } catch {
+            $err = $_ | Out-String
+          }
+
+          $err | Out-File ci_error.txt -Encoding utf8
 
       - name: Send failure to analyzer
         shell: powershell
         run: |
+          if (Test-Path ci_error.txt) {
+            $log = Get-Content ci_error.txt -Raw
+          } else {
+            $log = "CI failed but no error captured"
+          }
+
           $payload = @{
             incident_id = "${{ github.run_id }}"
-            log_text    = "CI failure from demo app"
+            log_text    = $log
           }
 
           Invoke-RestMethod `
             -Uri http://localhost:8000/webhook/ci `
             -Method POST `
             -ContentType "application/json" `
-            -Body ($payload | ConvertTo-Json -Depth 3)
-
-
+            -Body ($payload | ConvertTo-Json -Depth 5)
 
       - name: Mark job failed
         shell: powershell
